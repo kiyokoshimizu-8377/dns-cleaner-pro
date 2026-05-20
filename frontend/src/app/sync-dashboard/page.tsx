@@ -174,8 +174,8 @@ export default function SyncDashboardPage() {
 
     // Try SSE
     try {
-      const sseUrl = `http://localhost:3000/api/sync/batches/${batchId}/sse`; // NestJS prefix check, fallback if baseURL configured differently
-      const es = new EventSource(`http://localhost:3000/sync/batches/${batchId}/sse`);
+      const apiBase = process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000";
+      const es = new EventSource(`${apiBase}/sync/batches/${batchId}/sse`);
       sseRef.current = es;
       setConnectionType("SSE");
 
