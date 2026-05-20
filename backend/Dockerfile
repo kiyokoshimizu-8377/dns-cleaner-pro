@@ -31,4 +31,4 @@ COPY --from=builder /usr/src/app/dist ./dist
 EXPOSE 3000
 
 # Start script running migrations first
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/main.js"]
+CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/main.js"]
