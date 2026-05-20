@@ -1,0 +1,212 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+
+enum AccountHealth {
+  HEALTHY
+  RATE_LIMITED
+  INVALID_CREDENTIALS
+  DISABLED
+}
+
+model Account {
+  id           String        @id @default(uuid())
+  label        String?       // Internal name for the account
+  providerName String        // cloudflare, namecheap, spaceship, godaddy
+  apiKey       String
+  apiSecret    String?       // Optional for Cloudflare
+  email        String?       // Optional for some providers
+  health       AccountHealth @default(HEALTHY)
+  extraData    Json?         // Provider-specific config (clientIp, apiUser, shopperId)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  domains      Domain[]
+}
+
+model Domain {
+  id               String    @id @default(uuid())
+  accountId        String
+  domainName       String    @unique
+  provider         String    // To easily filter without joining
+  providerDomainId String?   // Cloudflare Zone ID or Namecheap Domain ID
+  recordsCount     Int       @default(0)
+  status           String    @default("active")
+  lastCleanedAt    DateTime?
+  lastSync         DateTime  @default(now())
+  account          Account   @relation(fields: [accountId], references: [id], onDelete: Cascade)
+  records          Record[]
+}
+
+
+model Record {
+  id                String   @id @default(uuid())
+  domainId          String
+  type              String   // A, CNAME, TXT, etc.
+  name              String
+  content           String
+  ttl               Int      @default(3600)
+  providerRecordId  String?  // The ID from Cloudflare/GoDaddy
+  extraData         Json?    // For provider-specific data (JSONB)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+  domain            Domain   @relation(fields: [domainId], references: [id], onDelete: Cascade)
+
+  @@index([domainId])
+}
+
+enum CleanJobStatus {
+  PENDING
+  RUNNING
+  CANCELLING
+  CANCELLED
+  COMPLETED
+  FAILED
+}
+
+enum BatchStatus {
+  PENDING
+  RUNNING
+  CANCELLING
+  CANCELLED
+  COMPLETED
+  FAILED
+}
+
+model CleanBatch {
+  id            String      @id @default(uuid())
+  status        BatchStatus @default(PENDING)
+  totalJobs     Int         @default(0)
+  completedJobs Int         @default(0)
+  failedJobs    Int         @default(0)
+  cancelReason  String?
+  startedAt     DateTime    @default(now())
+  cancelledAt   DateTime?
+  completedAt   DateTime?
+  jobs          CleanJob[]
+}
+
+model CleanJob {
+  id        String         @id @default(uuid())
+  bullJobId String         @unique
+  domainId  String?
+  batchId   String?
+  status    CleanJobStatus @default(PENDING)
+  progress  Int            @default(0)
+  result    Json?
+  error     String?
+  createdAt DateTime       @default(now())
+  updatedAt DateTime       @updatedAt
+
+  batch     CleanBatch?    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+
+  @@index([bullJobId])
+  @@index([batchId])
+}
+
+enum BatchType {
+  MASS_CLEAN
+  DEEP_SYNC
+  AUTO_ONBOARDING
+}
+
+enum Status {
+  PENDING
+  RUNNING
+  CANCELLING
+  CANCELLED
+  COMPLETED
+  FAILED
+  DLQ
+}
+
+model JobBatch {
+  id            String      @id @default(uuid())
+  type          BatchType
+  status        Status      @default(PENDING)
+  totalJobs     Int         @default(0)
+  completedJobs Int         @default(0)
+  failedJobs    Int         @default(0)
+  cancelReason  String?
+  startedAt     DateTime    @default(now())
+  cancelledAt   DateTime?
+  completedAt   DateTime?
+  meta          Json?
+  tasks         JobTask[]
+}
+
+model JobTask {
+  id          String      @id @default(uuid())
+  bullJobId   String      @unique
+  batchId     String
+  targetId    String?     // domainId or accountId depending on context
+  status      Status      @default(PENDING)
+  currentStep String?
+  error       String?
+  createdAt        DateTime    @default(now())
+  updatedAt        DateTime    @updatedAt
+  snapshotVersion  Int         @default(1)
+  
+  batch            JobBatch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  steps       JobStep[]
+
+  @@index([bullJobId])
+  @@index([batchId])
+  @@index([batchId, status])
+  @@index([updatedAt])
+}
+
+model JobStep {
+  id                String    @id @default(uuid())
+  taskId            String
+  name              String    // e.g. "IMPORT_DOMAIN", "DELETE_RECORDS"
+  status            Status    @default(PENDING)
+  startedAt         DateTime?
+  completedAt       DateTime?
+  error             String?
+  idempotencyKey    String?
+  externalRequestId String?
+  resultData        Json?
+  
+  task        JobTask        @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  snapshots   StepSnapshot[]
+
+  @@index([taskId])
+}
+
+model StepSnapshot {
+  id         String   @id @default(uuid())
+  stepId     String
+  type       String   // "BEFORE", "AFTER", "ERROR"
+  data       Json
+  durationMs Int?
+  createdAt  DateTime @default(now())
+
+  step       JobStep  @relation(fields: [stepId], references: [id], onDelete: Cascade)
+  @@index([stepId])
+}
+
+enum CircuitState {
+  CLOSED
+  OPEN
+  HALF_OPEN
+}
+
+model ProviderState {
+  provider     String       @id // e.g. "cloudflare"
+  state        CircuitState @default(CLOSED)
+  failureCount Int          @default(0)
+  cooldownMs   Int          @default(300000)
+  lastFailure  DateTime?
+  nextRetryAt  DateTime?
+  updatedAt    DateTime     @updatedAt
+}

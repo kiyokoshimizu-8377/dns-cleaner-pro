@@ -1,0 +1,73 @@
+version: '3.8'
+
+services:
+  # Next.js Frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        - NEXT_PUBLIC_API_URL=http://20.112.19.16:3000 # Change to domain if reverse proxied (e.g., https://api.yourdomain.com)
+    ports:
+      - "3001:3001"
+    restart: always
+    depends_on:
+      - backend
+
+  # NestJS Backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    ports:
+      - "3000:3000"
+    restart: always
+    environment:
+      - PORT=3000
+      # Option 1: Use Compose databases (recommended for isolation)
+      - DATABASE_URL=postgresql://cleaneruser:cleanerpass@postgres:5432/dnscleaner?schema=public
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+      
+      # Option 2: Connect to existing Docker containers on host (uncomment & customize if needed)
+      # - DATABASE_URL=postgresql://existing_user:existing_pass@host.docker.internal:5432/existing_db
+      # - REDIS_HOST=host.docker.internal
+      # - REDIS_PORT=6379
+    extra_hosts:
+      - "host.docker.internal:host-gateway" # Allows container to connect to host's localhost services
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: sh -c "npx prisma migrate deploy && node dist/main.js"
+
+  # Database (Optional: Comment out if using existing server databases)
+  postgres:
+    image: postgres:15-alpine
+    container_name: dns-postgres
+    ports:
+      - "5432:5432"
+    environment:
+      POSTGRES_USER: cleaneruser
+      POSTGRES_PASSWORD: cleanerpass
+      POSTGRES_DB: dnscleaner
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    restart: always
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cleaneruser -d dnscleaner"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  # Redis for Queue (Optional: Comment out if using existing Redis container)
+  redis:
+    image: redis:alpine
+    container_name: dns-redis
+    ports:
+      - "6379:6379"
+    restart: always
+
+volumes:
+  postgres_data:
