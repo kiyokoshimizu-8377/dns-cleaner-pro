@@ -1,4 +1,5 @@
 import { Module } from '@nestjs/common';
+import { ConfigModule } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { PrismaModule } from './prisma/prisma.module';
@@ -16,6 +17,9 @@ import { BullModule } from '@nestjs/bullmq';
 
 @Module({
   imports: [
+    ConfigModule.forRoot({
+      isGlobal: true, // Khallih global bach i-fully configuri l'env
+    }),
     PrismaModule,
     AccountsModule,
     CloudflareModule,
@@ -27,11 +31,16 @@ import { BullModule } from '@nestjs/bullmq';
     CleanerModule,
     WorkflowsModule,
     AutoOnboardingModule,
-    BullModule.forRoot({
-      connection: {
-        host: process.env.REDIS_HOST || 'localhost',
-        port: parseInt(process.env.REDIS_PORT || '6379'),
-      },
+
+    // 👇 Dynamic connection dyal BullMQ m7miya mn NOAUTH
+    BullModule.forRootAsync({
+      useFactory: () => ({
+        connection: {
+          host: process.env.REDIS_HOST || 'localhost',
+          port: parseInt(process.env.REDIS_PORT || '6379'),
+          password: process.env.REDIS_PASSWORD,
+        },
+      }),
     }),
   ],
   controllers: [AppController],

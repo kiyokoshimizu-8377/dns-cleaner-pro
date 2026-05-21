@@ -30,13 +30,14 @@ services:
       - DATABASE_URL=postgresql://cleaneruser:cleanerpass@postgres:5432/dnscleaner?schema=public
       - REDIS_HOST=redis
       - REDIS_PORT=6379
+      - REDIS_PASSWORD=cleanerredispass
 
     depends_on:
       postgres:
         condition: service_healthy
       redis:
         condition: service_started
-    
+
   # PostgreSQL
   postgres:
     image: postgres:15-alpine
@@ -62,13 +63,14 @@ services:
       retries: 10
 
   # Redis
+  # Redis
   redis:
     image: redis:alpine
     container_name: dns-redis
-
     ports:
       - "6379:6379"
-
+    # 👇 Had l'line darori bach i-kon protected b password b7al l'backend
+    command: redis-server --requirepass cleanerredispass
     restart: always
 
 volumes:
