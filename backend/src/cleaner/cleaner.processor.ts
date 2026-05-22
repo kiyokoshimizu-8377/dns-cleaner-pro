@@ -11,6 +11,7 @@ import { NamecheapService } from '../providers/namecheap/namecheap.service';
 import { DnsProvider } from '../providers/dns-provider.interface';
 import { SyncService } from '../sync/sync.service';
 import { CleanJobData } from '../domains/domains.service';
+import { getProviderConfig } from '../providers/provider-config.helper';
 
 export class JobCancelledError extends Error {
   constructor(message: string) {
@@ -135,14 +136,14 @@ export class CleanerProcessor extends WorkerHost {
             try {
               await this.checkCancellation(batchId);
               const apiKey = domain.account.apiKey;
-              const apiSecret =
-                domain.account.apiSecret || domain.account.email;
+              const providerConfig = getProviderConfig(domain.account as any);
+              const apiSecretOrUser = providerConfig.apiUser || domain.account.apiSecret || domain.account.email || '';
 
               // 1. Fetch CURRENT hosts from API to be 100% up-to-date
               const currentRecords = await this.namecheap.getRecords(
                 domain.domainName,
                 apiKey,
-                apiSecret || '',
+                apiSecretOrUser,
               );
 
               // 2. Filter out the ones we want to delete
@@ -166,9 +167,9 @@ export class CleanerProcessor extends WorkerHost {
 
               const params: any = {
                 ApiKey: apiKey.trim(),
-                ApiUser: (apiSecret || '').trim(),
-                UserName: (apiSecret || '').trim(),
-                ClientIp: '1.1.1.1',
+                ApiUser: apiSecretOrUser.trim(),
+                UserName: apiSecretOrUser.trim(),
+                ClientIp: providerConfig.clientIp || '1.1.1.1',
                 Command: 'namecheap.domains.dns.setHosts',
                 SLD: sld,
                 TLD: tld,
@@ -239,8 +240,8 @@ export class CleanerProcessor extends WorkerHost {
             const record = recordsToDelete[i];
             try {
               const apiKey = domain.account.apiKey;
-              const apiSecret =
-                domain.account.apiSecret || domain.account.email;
+              const providerConfig = getProviderConfig(domain.account as any);
+              const apiSecretOrUser = providerConfig.apiUser || domain.account.apiSecret || domain.account.email || undefined;
 
               // Execute on Provider API
               let domainIdentifier =
@@ -259,7 +260,7 @@ export class CleanerProcessor extends WorkerHost {
                 const realZoneId = await this.cloudflare.getZoneIdByName(
                   domain.domainName,
                   apiKey,
-                  apiSecret || undefined,
+                  apiSecretOrUser,
                 );
                 if (realZoneId) {
                   this.logger.log(
@@ -281,7 +282,7 @@ export class CleanerProcessor extends WorkerHost {
                 domainIdentifier || domain.domainName,
                 record.providerRecordId!,
                 apiKey,
-                apiSecret || undefined,
+                apiSecretOrUser,
               );
 
               // Update Local DB (Mirror Pattern: Mirror the success)

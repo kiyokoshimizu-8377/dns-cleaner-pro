@@ -9,6 +9,7 @@ import { DnsProvider } from '../providers/dns-provider.interface';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { Status, BatchType } from '@prisma/client';
+import { getProviderConfig } from '../providers/provider-config.helper';
 
 @Injectable()
 export class SyncService {
@@ -55,9 +56,10 @@ export class SyncService {
     );
 
     const apiKey = account.apiKey;
-    const apiSecret = account.apiSecret || account.email; // Use email as fallback for CF, secret for others
+    const providerConfig = getProviderConfig(account);
+    const apiSecretOrUser = providerConfig.apiUser || account.apiSecret || account.email || ''; 
 
-    const zones = await provider.getZones(apiKey, apiSecret);
+    const zones = await provider.getZones(apiKey, apiSecretOrUser);
     const activeZoneNames = zones.map((z) => z.name);
 
     this.logger.log(

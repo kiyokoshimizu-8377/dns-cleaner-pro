@@ -7,6 +7,7 @@ import { NamecheapService } from '../providers/namecheap/namecheap.service';
 import { SyncService } from '../sync/sync.service';
 import { StepDefinition, WorkflowContext } from '../workflows/types';
 import { DnsProvider } from '../providers/dns-provider.interface';
+import { getProviderConfig } from '../providers/provider-config.helper';
 import axios from 'axios';
 
 @Injectable()
@@ -103,13 +104,14 @@ export class CleanerWorkflows {
           if (domain.provider.toLowerCase() === 'namecheap') {
             this.logger.log(`[DELETE_RECORDS] Namecheap detected. Performing bulk delete...`);
             const apiKey = domain.account.apiKey;
-            const apiSecret = domain.account.apiSecret || domain.account.email;
+            const providerConfig = getProviderConfig(domain.account as any);
+            const apiSecretOrUser = providerConfig.apiUser || domain.account.apiSecret || domain.account.email || '';
 
             // Fetch current hosts to be 100% up-to-date
             const currentRecords = await this.namecheap.getRecords(
               domain.domainName,
               apiKey,
-              apiSecret || ''
+              apiSecretOrUser
             );
 
             const recordProviderIdsToDelete = recordsToDelete.map((r) => r.providerRecordId);
@@ -123,9 +125,9 @@ export class CleanerWorkflows {
 
             const params: any = {
               ApiKey: apiKey.trim(),
-              ApiUser: (apiSecret || '').trim(),
-              UserName: (apiSecret || '').trim(),
-              ClientIp: '1.1.1.1',
+              ApiUser: apiSecretOrUser.trim(),
+              UserName: apiSecretOrUser.trim(),
+              ClientIp: providerConfig.clientIp || '1.1.1.1',
               Command: 'namecheap.domains.dns.setHosts',
               SLD: sld,
               TLD: tld,
@@ -173,7 +175,8 @@ export class CleanerWorkflows {
               const record = recordsToDelete[i];
               try {
                 const apiKey = domain.account.apiKey;
-                const apiSecret = domain.account.apiSecret || domain.account.email;
+                const providerConfig = getProviderConfig(domain.account as any);
+                const apiSecretOrUser = providerConfig.apiUser || domain.account.apiSecret || domain.account.email || undefined;
 
                 let domainIdentifier = domain.provider.toLowerCase() === 'cloudflare'
                   ? domain.providerDomainId
@@ -187,7 +190,7 @@ export class CleanerWorkflows {
                   const realZoneId = await this.cloudflare.getZoneIdByName(
                     domain.domainName,
                     apiKey,
-                    apiSecret || undefined
+                    apiSecretOrUser
                   );
                   if (realZoneId) {
                     await this.prisma.domain.update({
@@ -202,7 +205,7 @@ export class CleanerWorkflows {
                   domainIdentifier || domain.domainName,
                   record.providerRecordId!,
                   apiKey,
-                  apiSecret || undefined
+                  apiSecretOrUser
                 );
 
                 // Update local DB

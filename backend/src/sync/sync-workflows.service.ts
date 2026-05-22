@@ -10,6 +10,7 @@ import { randomUUID } from 'crypto';
 import { InjectQueue } from '@nestjs/bullmq';
 import { Queue } from 'bullmq';
 import { ValidationError, ProviderNotFoundError } from '../workflows/errors';
+import { getProviderConfig } from '../providers/provider-config.helper';
 
 @Injectable()
 export class SyncWorkflows {
@@ -65,10 +66,11 @@ export class SyncWorkflows {
 
         const provider = this.getProvider(account.providerName);
         const apiKey = account.apiKey;
-        const apiSecret = account.apiSecret || account.email || undefined;
+        const providerConfig = getProviderConfig(account);
+        const apiSecretOrUser = providerConfig.apiUser || account.apiSecret || account.email || undefined;
 
         // Fetch zones
-        const zones = await provider.getZones(apiKey, apiSecret);
+        const zones = await provider.getZones(apiKey, apiSecretOrUser);
         const activeZoneNames = zones.map((z) => z.name);
 
         if (context.heartbeat) await context.heartbeat();

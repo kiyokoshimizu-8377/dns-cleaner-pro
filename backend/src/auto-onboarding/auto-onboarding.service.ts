@@ -10,6 +10,7 @@ import { Queue } from 'bullmq';
 import { BatchType, Status } from '@prisma/client';
 import { StartOnboardingDto } from './dto/start-onboarding.dto';
 import { normalizeAndValidateDomain } from './domain-validation.helper';
+import { getProviderConfig } from '../providers/provider-config.helper';
 
 @Injectable()
 export class AutoOnboardingService {
@@ -40,7 +41,9 @@ export class AutoOnboardingService {
 
     const provider = this.getProvider(account.providerName);
     try {
-      const zones = await provider.getZones(account.apiKey, account.email || '');
+      const providerConfig = getProviderConfig(account as any);
+      const apiUserOrEmail = providerConfig.apiUser || account.email || account.apiSecret || '';
+      const zones = await provider.getZones(account.apiKey, apiUserOrEmail);
       return { domains: zones.map(z => z.name) };
     } catch (err: any) {
       this.logger.error(`Failed to fetch registrar domains for ${accountId}: ${err.message}`);
@@ -82,7 +85,9 @@ export class AutoOnboardingService {
     let rawDomains: string[] = [];
     if (mode === 'FULL_ACCOUNT') {
       this.logger.log(`Fetching all domains from registrar ${registrarAccount.providerName} (${registrarAccountId})`);
-      const zones = await registrarProvider!.getZones(registrarAccount.apiKey, registrarAccount.email || '');
+      const providerConfig = getProviderConfig(registrarAccount as any);
+      const apiUserOrEmail = providerConfig.apiUser || registrarAccount.email || registrarAccount.apiSecret || '';
+      const zones = await registrarProvider!.getZones(registrarAccount.apiKey, apiUserOrEmail);
       rawDomains = zones.map(z => z.name);
     } else if (mode === 'SELECTED_DOMAINS') {
       rawDomains = selectedDomains;
@@ -113,7 +118,9 @@ export class AutoOnboardingService {
     let skippedOwnershipCount = 0;
 
     if (mode === 'MANUAL_LIST' && registrarAccountId && ownershipVerificationMode === 'REGISTRAR_MATCH') {
-      const registrarZones = await registrarProvider!.getZones(registrarAccount.apiKey, registrarAccount.email || '');
+      const providerConfig = getProviderConfig(registrarAccount as any);
+      const apiUserOrEmail = providerConfig.apiUser || registrarAccount.email || registrarAccount.apiSecret || '';
+      const registrarZones = await registrarProvider!.getZones(registrarAccount.apiKey, apiUserOrEmail);
       const registrarDomainNames = new Set(registrarZones.map(z => z.name.toLowerCase()));
       
       finalTargetDomains = uniqueDomains.filter(d => registrarDomainNames.has(d.toLowerCase()));
@@ -121,7 +128,9 @@ export class AutoOnboardingService {
     }
 
     // 3. Diff against Cloudflare
-    const cfZones = await this.cloudflare.getZones(cloudflareAccount.apiKey, cloudflareAccount.email || '');
+    const cfProviderConfig = getProviderConfig(cloudflareAccount as any);
+    const cfApiUserOrEmail = cfProviderConfig.apiUser || cloudflareAccount.email || cloudflareAccount.apiSecret || '';
+    const cfZones = await this.cloudflare.getZones(cloudflareAccount.apiKey, cfApiUserOrEmail);
     const cfZoneNames = new Set(cfZones.map(z => z.name.toLowerCase()));
 
     const alreadyInCloudflare: string[] = [];
