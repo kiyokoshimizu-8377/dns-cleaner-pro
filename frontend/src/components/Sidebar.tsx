@@ -12,7 +12,8 @@ import {
   Activity,
   Menu,
   Users,
-  CloudUpload
+  CloudUpload,
+  Shield
 } from "lucide-react";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
@@ -30,6 +31,7 @@ const menuItems = [
   { name: "Onboarding", href: "/onboarding", icon: CloudUpload },
   { name: "Mass Cleaner", href: "/mass-cleaner", icon: Trash2 },
   { name: "Users Management", href: "/users", icon: Users },
+  { name: "Roles & Permissions", href: "/roles", icon: Shield },
 ];
 
 export default function Sidebar({ isCollapsed, onToggle }: { isCollapsed?: boolean, onToggle?: () => void }) {

@@ -3,6 +3,7 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Mail, Lock, ArrowRight } from "lucide-react";
+import { loadUsers, saveUsers } from "@/lib/user-manager";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -35,21 +36,6 @@ export default function LoginPage() {
     }
   }, []);
 
-  const getUsers = () => {
-    if (typeof window === "undefined") return [];
-    const usersStr = localStorage.getItem("dns_cleaner_users");
-    if (!usersStr) {
-      const defaultUsers = [{ username: "admin", email: "admin@test.com", password: "admin" }];
-      localStorage.setItem("dns_cleaner_users", JSON.stringify(defaultUsers));
-      return defaultUsers;
-    }
-    try {
-      return JSON.parse(usersStr);
-    } catch {
-      return [];
-    }
-  };
-
   const handleLogin = (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
@@ -67,16 +53,23 @@ export default function LoginPage() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const users = getUsers();
+      const users = loadUsers();
       const input = username.trim().toLowerCase();
 
-      const matchedUser = users.find((u: any) => 
-        u.username.toLowerCase() === input || 
-        u.email.toLowerCase() === input
+      const matchedUser = users.find(
+        (u) =>
+          u.username.toLowerCase() === input ||
+          u.email.toLowerCase() === input,
       );
 
       if (!matchedUser || matchedUser.password !== password) {
         setError("Invalid username or password!");
+        setIsLoading(false);
+        return;
+      }
+
+      if (matchedUser.status === "inactive") {
+        setError("Ce compte est désactivé. Contactez un administrateur.");
         setIsLoading(false);
         return;
       }
@@ -125,16 +118,20 @@ export default function LoginPage() {
     setIsLoading(true);
 
     setTimeout(() => {
-      const users = getUsers();
-      
-      const usernameExists = users.some((u: any) => u.username.toLowerCase() === username.trim().toLowerCase());
+      const users = loadUsers();
+
+      const usernameExists = users.some(
+        (u) => u.username.toLowerCase() === username.trim().toLowerCase(),
+      );
       if (usernameExists) {
         setError("Username already exists!");
         setIsLoading(false);
         return;
       }
 
-      const emailExists = users.some((u: any) => u.email.toLowerCase() === email.trim().toLowerCase());
+      const emailExists = users.some(
+        (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
+      );
       if (emailExists) {
         setError("Email already registered!");
         setIsLoading(false);
@@ -142,12 +139,15 @@ export default function LoginPage() {
       }
 
       const newUser = {
+        id: `u-${Date.now()}`,
         username: username.trim(),
         email: email.trim().toLowerCase(),
-        password: password
+        password,
+        role: "user" as const,
+        status: "active" as const,
       };
-      
-      localStorage.setItem("dns_cleaner_users", JSON.stringify([...users, newUser]));
+
+      saveUsers([...users, newUser]);
       
       setSuccess("Account created successfully!");
       setIsLoading(false);
