@@ -83,7 +83,9 @@ export class AutoOnboardingProcessor extends WorkerHost {
         this.logger.log(`Step: Ensuring Cloudflare zone exists for ${domain.domainName}`);
         if (!cfProvider.createZone) throw new Error('Cloudflare provider missing createZone');
         
-        const result = await cfProvider.createZone(domain.domainName, cloudflareAccount.apiKey, cloudflareAccount.email || '');
+        const cfConfig = getProviderConfig(cloudflareAccount as any);
+        const cfApiUserOrEmail = cfConfig.apiUser || cloudflareAccount.apiSecret || cloudflareAccount.email || '';
+        const result = await cfProvider.createZone(domain.domainName, cloudflareAccount.apiKey, cfApiUserOrEmail);
         
         if (!result.nameServers || result.nameServers.length === 0) {
           throw new Error(`Cloudflare zone created but no nameservers were assigned for ${domain.domainName}`);
@@ -125,12 +127,13 @@ export class AutoOnboardingProcessor extends WorkerHost {
           }
 
           const extraData = getProviderConfig(registrarAccount);
+          const apiUserOrEmail = extraData.apiUser || registrarAccount.apiSecret || registrarAccount.email || '';
           
           await registrarProvider.updateNameservers(
             domain.domainName,
             nsToSet,
             registrarAccount.apiKey,
-            registrarAccount.email || '',
+            apiUserOrEmail,
             extraData
           );
           
