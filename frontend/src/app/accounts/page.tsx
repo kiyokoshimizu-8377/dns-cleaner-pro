@@ -76,6 +76,9 @@ export default function AccountsPage() {
     mutationFn: ({ id, data }: { id: string; data: any }) => {
       const payload = { ...data };
       delete payload.id;
+      if (!payload.apiKey?.trim()) {
+        delete payload.apiKey;
+      }
       if (data.providerName !== 'cloudflare') {
         payload.apiSecret = data.email;
         payload.email = null;
@@ -155,7 +158,7 @@ export default function AccountsPage() {
                             id: account.id,
                             label: account.label || "",
                             providerName: account.providerName,
-                            apiKey: account.apiKey || "",
+                            apiKey: "",
                             email: account.providerName === 'cloudflare' ? (account.email || "") : (account.apiSecret || "")
                           });
                           setShowForm(true);
@@ -190,7 +193,7 @@ export default function AccountsPage() {
                     </div>
                     <div className="flex items-center gap-2 text-sm text-muted-foreground font-medium bg-background/30 p-2.5 rounded-xl border border-white/5">
                       <Key className="w-4 h-4 shrink-0 text-primary" />
-                      <span>••••••••{account.apiKey.slice(-4)}</span>
+                      <span>{account.apiKey || "••••••••"}</span>
                     </div>
                   </div>
 
@@ -285,7 +288,7 @@ export default function AccountsPage() {
                     <input 
                       type="password"
                       autoComplete="new-password"
-                      placeholder="Enter API Token / Key"
+                      placeholder={newAccount.id ? "Leave blank to keep current token" : "Enter API Token / Key"}
                       className="w-full bg-secondary/50 border border-white/5 rounded-xl py-3 pl-12 pr-4 focus:ring-2 ring-primary transition-all text-sm"
                       value={newAccount.apiKey}
                       onChange={(e) => setNewAccount({...newAccount, apiKey: e.target.value})}

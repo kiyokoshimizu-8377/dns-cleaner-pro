@@ -6,6 +6,7 @@ import { SyncService } from '../sync/sync.service';
 import Redis from 'ioredis';
 import { CleanJobStatus, BatchStatus } from '@prisma/client';
 import { randomUUID } from 'crypto';
+import { sanitizeAccount } from '../common/sanitize-account';
 
 export interface CleanJobData {
   domainId: string;
@@ -83,7 +84,12 @@ export class DomainsService {
       }
     }
 
-    return domain;
+    if (!domain) return null;
+
+    return {
+      ...domain,
+      account: domain.account ? sanitizeAccount(domain.account) : null,
+    };
   }
 
   async syncDomainRecords(id: string) {
