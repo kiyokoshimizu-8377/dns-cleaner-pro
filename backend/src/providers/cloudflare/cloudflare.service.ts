@@ -290,19 +290,54 @@ export class CloudflareService implements DnsProvider {
     }
   }
 
+  async resolveAccountId(apiKey: string): Promise<string> {
+    try {
+      // First try to get it from an existing zone
+      const zonesResp = await this.requestWithRetry({
+        method: 'GET',
+        url: `${this.baseUrl}/zones`,
+        headers: this.getHeaders(apiKey),
+        params: { per_page: 1 },
+      });
+      if (zonesResp.data?.result?.[0]?.account?.id) {
+        return zonesResp.data.result[0].account.id;
+      }
+
+      // Fallback to /accounts endpoint
+      const accountsResp = await this.requestWithRetry({
+        method: 'GET',
+        url: `${this.baseUrl}/accounts`,
+        headers: this.getHeaders(apiKey),
+      });
+      if (accountsResp.data?.result?.[0]?.id) {
+        return accountsResp.data.result[0].id;
+      }
+
+      throw new Error('Could not automatically resolve Cloudflare Account ID.');
+    } catch (error: any) {
+      throw new Error(`Failed to resolve Cloudflare Account ID: ${error.message}`);
+    }
+  }
+
   async createZone(domainName: string, apiKey: string, email?: string): Promise<{ id: string; name: string; status: string; nameServers?: string[] }> {
     if (this.isMock(apiKey)) {
       return { id: 'mock-new-zone', name: domainName, status: 'active', nameServers: ['ns1.mock.com', 'ns2.mock.com'] };
     }
 
     try {
+      let accountId = email;
+      if (!accountId || accountId.length !== 32) {
+        this.logger.log(`Cloudflare account ID not provided directly (got '${email}'). Attempting to resolve automatically...`);
+        accountId = await this.resolveAccountId(apiKey);
+      }
+
       const response = await this.requestWithRetry({
         method: 'POST',
         url: `${this.baseUrl}/zones`,
         headers: this.getHeaders(apiKey),
         data: {
           name: domainName,
-          account: { id: email } // email is used as account_id context if passed, though usually optional for CF unless multiple accounts
+          account: { id: accountId }
         }
       });
       const zone = response.data.result;
