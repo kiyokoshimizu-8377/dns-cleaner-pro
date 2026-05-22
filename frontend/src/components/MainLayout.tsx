@@ -18,7 +18,8 @@ const pageTitles: { [key: string]: string } = {
   "/mass-cleaner": "Bulk DNS Cleaner",
   "/export": "Export & Reports",
   "/settings": "System Settings",
-  "/users": "Users Management",
+  "/users": "Gestion utilisateurs",
+  "/roles": "Rôles & Permissions",
   "/sync-dashboard": "Sync Dashboard",
   "/onboarding": "Onboarding",
 };
