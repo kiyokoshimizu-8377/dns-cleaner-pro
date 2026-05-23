@@ -1,16 +1,45 @@
 import axios from "axios";
+import { ACCESS_TOKEN_KEY, clearSession } from "./auth";
 
 export const api = axios.create({
   baseURL: process.env.NEXT_PUBLIC_API_URL || "http://localhost:3000",
+  withCredentials: true,
 });
 
-export const startAutoOnboarding = async (payload: any) => {
+api.interceptors.request.use((config) => {
+  if (typeof window !== "undefined") {
+    const token = localStorage.getItem(ACCESS_TOKEN_KEY);
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+  return config;
+});
+
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    if (
+      typeof window !== "undefined" &&
+      error.response?.status === 401 &&
+      !error.config?.url?.includes("/auth/login")
+    ) {
+      clearSession();
+      window.location.href = "/login";
+    }
+    return Promise.reject(error);
+  },
+);
+
+export const startAutoOnboarding = async (payload: unknown) => {
   const { data } = await api.post("/auto-onboarding/start", payload);
   return data;
 };
 
 export const getRegistrarDomains = async (accountId: string) => {
-  const { data } = await api.get(`/auto-onboarding/registrar-domains/${accountId}`);
+  const { data } = await api.get(
+    `/auto-onboarding/registrar-domains/${accountId}`,
+  );
   return data;
 };
 
@@ -19,7 +48,7 @@ export const getAccounts = async () => {
   return data;
 };
 
-export const createAccount = async (accountData: any) => {
+export const createAccount = async (accountData: unknown) => {
   const { data } = await api.post("/accounts", accountData);
   return data;
 };
@@ -39,19 +68,20 @@ export const deleteAccount = async (id: string) => {
   return data;
 };
 
-export const updateAccount = async (id: string, accountData: any) => {
+export const updateAccount = async (id: string, accountData: unknown) => {
   const { data } = await api.patch(`/accounts/${id}`, accountData);
   return data;
 };
 
 export const getDomains = async () => {
-
   const { data } = await api.get("/domains");
   return data;
 };
 
 export const massDeleteRecords = async (domainId: string, types?: string[]) => {
-  const { data } = await api.post(`/domains/${domainId}/mass-delete`, { types });
+  const { data } = await api.post(`/domains/${domainId}/mass-delete`, {
+    types,
+  });
   return data;
 };
 
@@ -60,8 +90,14 @@ export const syncDomainRecords = async (domainId: string) => {
   return data;
 };
 
-export const bulkMassDelete = async (domainNames: string[], types?: string[]) => {
-  const { data } = await api.post(`/domains/bulk-mass-delete`, { domainNames, types });
+export const bulkMassDelete = async (
+  domainNames: string[],
+  types?: string[],
+) => {
+  const { data } = await api.post(`/domains/bulk-mass-delete`, {
+    domainNames,
+    types,
+  });
   return data;
 };
 
@@ -107,7 +143,7 @@ export const getActiveSyncBatchesCount = async () => {
 
 export const getSyncBatchDetails = async (
   batchId: string,
-  params?: { page?: number; limit?: number; status?: string; search?: string }
+  params?: { page?: number; limit?: number; status?: string; search?: string },
 ) => {
   const { data } = await api.get(`/sync/batches/${batchId}`, { params });
   return data;
@@ -120,6 +156,40 @@ export const getTaskSteps = async (taskId: string) => {
 
 export const cancelSyncBatch = async (batchId: string) => {
   const { data } = await api.post(`/sync/batches/${batchId}/cancel`);
+  return data;
+};
+
+export const getUsers = async () => {
+  const { data } = await api.get("/users");
+  return data;
+};
+
+export const createUser = async (payload: {
+  username: string;
+  email: string;
+  password: string;
+  role?: string;
+}) => {
+  const { data } = await api.post("/users", payload);
+  return data;
+};
+
+export const updateUser = async (
+  id: string,
+  payload: Partial<{
+    username: string;
+    email: string;
+    password: string;
+    role: string;
+    status: string;
+  }>,
+) => {
+  const { data } = await api.patch(`/users/${id}`, payload);
+  return data;
+};
+
+export const deleteUser = async (id: string) => {
+  const { data } = await api.delete(`/users/${id}`);
   return data;
 };
 

@@ -28,6 +28,8 @@ services:
       - REDIS_HOST=redis
       - REDIS_PORT=6379
       - REDIS_PASSWORD=
+      - JWT_SECRET=${JWT_SECRET:-dns-cleaner-change-this-in-production}
+      - FRONTEND_URL=${FRONTEND_URL:-http://localhost:3001}
     depends_on:
       postgres:
         condition: service_healthy

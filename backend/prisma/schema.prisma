@@ -211,3 +211,14 @@ model ProviderState {
   nextRetryAt  DateTime?
   updatedAt    DateTime     @updatedAt
 }
+
+model User {
+  id        String   @id @default(uuid())
+  username  String   @unique
+  email     String   @unique
+  password  String
+  role      String   @default("user")
+  status    String   @default("active")
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}

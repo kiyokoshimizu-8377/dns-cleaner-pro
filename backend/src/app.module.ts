@@ -13,6 +13,8 @@ import { DomainsModule } from './domains/domains.module';
 import { CleanerModule } from './cleaner/cleaner.module';
 import { WorkflowsModule } from './workflows/workflows.module';
 import { AutoOnboardingModule } from './auto-onboarding/auto-onboarding.module';
+import { AuthModule } from './auth/auth.module';
+import { UsersModule } from './users/users.module';
 import { BullModule } from '@nestjs/bullmq';
 
 @Module({
@@ -24,6 +26,8 @@ import { BullModule } from '@nestjs/bullmq';
         process.env.NODE_ENV === 'production' ? [] : ['../.env', '.env'],
     }),
     PrismaModule,
+    AuthModule,
+    UsersModule,
     AccountsModule,
     CloudflareModule,
     SpaceshipModule,

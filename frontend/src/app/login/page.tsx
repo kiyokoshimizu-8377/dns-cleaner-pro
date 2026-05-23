@@ -3,7 +3,11 @@
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
 import { ShieldCheck, Mail, Lock, ArrowRight } from "lucide-react";
-import { loadUsers, saveUsers } from "@/lib/user-manager";
+import {
+  loginRequest,
+  registerRequest,
+  setSession,
+} from "@/lib/auth";
 import { clsx, type ClassValue } from "clsx";
 import { twMerge } from "tailwind-merge";
 
@@ -36,7 +40,7 @@ export default function LoginPage() {
     }
   }, []);
 
-  const handleLogin = (e: React.FormEvent) => {
+  const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -52,39 +56,24 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const users = loadUsers();
-      const input = username.trim().toLowerCase();
-
-      const matchedUser = users.find(
-        (u) =>
-          u.username.toLowerCase() === input ||
-          u.email.toLowerCase() === input,
+    try {
+      const auth = await loginRequest(username.trim(), password);
+      setSession(auth);
+      setSuccess(`Welcome back, ${auth.user.username}!`);
+      setTimeout(() => router.push("/"), 600);
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Invalid username or password!";
+      setError(
+        Array.isArray(message) ? message.join(", ") : String(message),
       );
-
-      if (!matchedUser || matchedUser.password !== password) {
-        setError("Invalid username or password!");
-        setIsLoading(false);
-        return;
-      }
-
-      if (matchedUser.status === "inactive") {
-        setError("Ce compte est désactivé. Contactez un administrateur.");
-        setIsLoading(false);
-        return;
-      }
-
-      localStorage.setItem("isLoggedIn", "true");
-      localStorage.setItem("currentUser", JSON.stringify(matchedUser));
-      setSuccess(`Welcome back, ${matchedUser.username}!`);
-      
-      setTimeout(() => {
-        router.push("/");
-      }, 1000);
-    }, 1200);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const handleRegister = (e: React.FormEvent) => {
+  const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError("");
     setSuccess("");
@@ -117,50 +106,25 @@ export default function LoginPage() {
 
     setIsLoading(true);
 
-    setTimeout(() => {
-      const users = loadUsers();
-
-      const usernameExists = users.some(
-        (u) => u.username.toLowerCase() === username.trim().toLowerCase(),
-      );
-      if (usernameExists) {
-        setError("Username already exists!");
-        setIsLoading(false);
-        return;
-      }
-
-      const emailExists = users.some(
-        (u) => u.email.toLowerCase() === email.trim().toLowerCase(),
-      );
-      if (emailExists) {
-        setError("Email already registered!");
-        setIsLoading(false);
-        return;
-      }
-
-      const newUser = {
-        id: `u-${Date.now()}`,
+    try {
+      const auth = await registerRequest({
         username: username.trim(),
-        email: email.trim().toLowerCase(),
+        email: email.trim(),
         password,
-        role: "user" as const,
-        status: "active" as const,
-      };
-
-      saveUsers([...users, newUser]);
-      
+      });
+      setSession(auth);
       setSuccess("Account created successfully!");
+      setTimeout(() => router.push("/"), 800);
+    } catch (err: unknown) {
+      const message =
+        (err as { response?: { data?: { message?: string } } })?.response?.data
+          ?.message ?? "Registration failed";
+      setError(
+        Array.isArray(message) ? message.join(", ") : String(message),
+      );
+    } finally {
       setIsLoading(false);
-      
-      setUsername("");
-      setEmail("");
-      setPassword("");
-
-      setTimeout(() => {
-        setIsRegister(false);
-        setSuccess("");
-      }, 1500);
-    }, 1200);
+    }
   };
 
   return (

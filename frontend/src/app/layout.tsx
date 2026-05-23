@@ -3,7 +3,6 @@ import { Outfit } from "next/font/google";
 import "./globals.css";
 import Providers from "./providers";
 import MainLayout from "@/components/MainLayout";
-import GlobalJobTracker from "@/components/GlobalJobTracker";
 
 const outfit = Outfit({
   subsets: ["latin"],
@@ -25,7 +24,6 @@ export default function RootLayout({
       <body className={`${outfit.variable} font-sans antialiased`}>
         <Providers>
           <MainLayout>{children}</MainLayout>
-          <GlobalJobTracker />
         </Providers>
       </body>
     </html>
